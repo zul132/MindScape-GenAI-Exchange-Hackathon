@@ -1,5 +1,4 @@
 flask==3.0.3
 google-cloud-speech
 google-cloud-language
-google-cloud-aiplatform
-google-cloud-videointelligence
+google-generativeai

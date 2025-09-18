@@ -3,23 +3,32 @@ import os
 from google.cloud import speech
 from google.cloud import language_v1
 from google.oauth2 import service_account
-import vertexai
-from vertexai.generative_models import GenerativeModel
+import google.generativeai as genai
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 
-# --- Explicitly load credentials ---
+# --- Service account credentials for Speech-to-Text and Language API ---
+# This is still needed for the other Google Cloud services.
 CREDENTIALS_PATH = "D:\\Hackathons\\Google_GenAI_Exchange_Hackathon\\MindScape-Project\\credentials\\genai-exchange-hack-4c8e1b0ee7a3.json"
 credentials = service_account.Credentials.from_service_account_file(CREDENTIALS_PATH)
 
-# Initialize Vertex AI
-vertexai.init(project="genai-exchange-hack", location="us-central1", credentials=credentials)
+# --- Initialize Gemini with API Key ---
+# The API key is loaded from the .env file.
+api_key = os.getenv("GEMINI_API_KEY")
+if not api_key:
+    raise ValueError("GEMINI_API_KEY not found in .env file. Please create a .env file in the 'backend' directory and add your key.")
+genai.configure(api_key=api_key)
+
 
 def generate_gemini_response(text):
     """
-    Generates a response using the Gemini API.
+    Generates a response using the Gemini API with the google-generativeai SDK.
     """
-    gemini_model = GenerativeModel("gemini-1.0-pro-001")
+    gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
     prompt = f"""You are a compassionate and supportive mental wellness companion. A user has shared the following with you:
 
     "{text}"
