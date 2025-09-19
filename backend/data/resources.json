@@ -1,0 +1,62 @@
+{
+  "crisis_hotlines": [
+    {
+      "name": "Tele MANAS Helpline",
+      "contact": "1-800-891-4416 or 14416",
+      "description": "A 24/7 free national mental health helpline by the Government of India, available in 20 regional languages.",
+      "website": "https://telemanas.mohfw.gov.in/home"
+    },
+    {
+      "name": "MPower Minds Helpline",
+      "contact": "1800-120-820050",
+      "description": "A 24/7 helpline by the Aditya Birla Education Trust providing mental health support across India.",
+      "website": "https://mpowerminds.com/"
+    },
+    {
+      "name": "Vandrevala Foundation for Mental Health",
+      "contact": "9999666555",
+      "description": "24/7 crisis hotline for anyone feeling distressed or suicidal.",
+      "website": "http://www.vandrevalafoundation.com/"
+    },
+    {
+      "name": "iCALL Psychosocial Helpline",
+      "contact": "022-25521111",
+      "description": "Available from Monday to Saturday, 10 AM to 8 PM. Provides counseling by telephone.",
+      "website": "http://icallhelpline.org/"
+    }
+  ],
+  "online_counseling": [
+    {
+      "name": "YourDOST",
+      "description": "An online platform connecting you with professional counselors and psychologists for chat, phone, or video sessions. They often have resources for students.",
+      "website": "https://yourdost.com/"
+    },
+    {
+      "name": "Manastha",
+      "description": "Offers online therapy and counseling services with a focus on affordability and accessibility for young people in India.",
+      "website": "https://www.manastha.com/"
+    }
+  ],
+  "youth_communities": [
+    {
+      "name": "Sangath - Adolescent and Youth Mental Health",
+      "description": "An organization dedicated to youth mental health, offering evidence-based interventions, support, and resources for young people in India.",
+      "website": "https://www.sangath.in/adolescentandyouth"
+    },
+    {
+      "name": "SCARF India - Youth Mental Health Program",
+      "description": "The Schizophrenia Research Foundation (SCARF) runs a dedicated program to address the mental health needs of young people, offering support and awareness.",
+      "website": "https://scarfindia.org/youth-mental-health-program/"
+    },
+    {
+      "name": "The Alternative Story",
+      "description": "A platform offering affordable therapy, support groups, and workshops, with a focus on creating safe spaces for young adults.",
+      "website": "https://thealternativestory.com/"
+    },
+    {
+      "name": "LonePack",
+      "description": "A youth-led mental health organization that runs a peer support network and works to destigmatize conversations around mental health in India.",
+      "website": "https://www.lonepack.org/buddy-pack/"
+    }
+  ]
+}

@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 import os
+import json # RAG UPDATE: Import the json library
 from google.cloud import speech
 from google.cloud import language_v1
 from google.oauth2 import service_account
@@ -24,19 +25,76 @@ if not api_key:
 genai.configure(api_key=api_key)
 
 
-def generate_gemini_response(text):
+# RAG UPDATE: Load the mental health resources from the JSON file
+def load_mental_health_resources():
+    """Loads mental health resources from the JSON knowledge base."""
+    try:
+        with open(os.path.join("data", "resources.json"), 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print("WARNING: resources.json not found. The RAG pipeline will not have access to resources.")
+        return {}
+
+# RAG UPDATE: Store resources in a global variable for efficiency
+mental_health_resources = load_mental_health_resources()
+
+
+# RAG UPDATE: Simple retrieval logic based on sentiment score
+def retrieve_relevant_resources(sentiment_score):
+    """
+    Retrieves relevant mental health resources from the knowledge base
+    based on the user's sentiment score.
+    """
+    if not mental_health_resources:
+        return None
+
+    # If sentiment is very negative, suggest crisis hotlines
+    if sentiment_score < -0.6:
+        return mental_health_resources.get("crisis_hotlines")
+    # If sentiment is moderately negative, suggest online counseling
+    elif -0.6 <= sentiment_score < -0.25:
+        return mental_health_resources.get("online_counseling")
+    # For milder negative feelings, suggest youth communities
+    elif -0.25 <= sentiment_score < 0:
+        return mental_health_resources.get("youth_communities")
+    else:
+        return None # No resources needed for positive sentiment
+
+
+def generate_gemini_response(text, resources=None): # RAG UPDATE: Add 'resources' parameter
     """
     Generates a response using the Gemini API with the google-generativeai SDK.
+    Optionally includes retrieved resources for a more helpful response.
     """
     gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
-    prompt = f"""You are a compassionate and supportive mental wellness companion. A user has shared the following with you:
+    
+    # RAG UPDATE: Dynamically change the prompt based on whether resources were retrieved
+    if resources:
+        # Convert resources list to a formatted string for the prompt
+        resources_text = "\n".join([f"- {res['name']}: {res['description']} (Contact/Website: {res.get('contact', res.get('website'))})" for res in resources])
+        
+        prompt = f"""You are a compassionate and supportive mental wellness companion for the youth of India. A user has shared the following with you:
 
-    "{text}"
+        "{text}"
 
-    Based on their message, please provide a comforting and supportive response. If their message indicates significant distress, gently suggest seeking professional help and provide resources if possible. Keep your response concise and empathetic."""
+        Their message indicates significant distress. Based on their message, please provide a comforting, empathetic, and culturally sensitive response. 
+        It is very important that you gently and naturally weave the following resources into your advice. Do not just list them. Explain why one of them might be helpful.
+
+        Here are some resources you MUST suggest:
+        {resources_text}
+        
+        Keep your response concise, supportive, and actionable. Start by acknowledging their feelings.
+        """
+    else:
+        prompt = f"""You are a compassionate and supportive mental wellness companion for the youth of India. A user has shared the following with you:
+
+        "{text}"
+
+        Based on their message, please provide a comforting and supportive response. If their message indicates mild distress, you can gently suggest talking to a friend, family member, or a professional. Keep your response concise, empathetic and culturally sensitive to an Indian context."""
     
     response = gemini_model.generate_content(prompt)
     return response.text
+
 
 @app.route("/analyze", methods=["POST"])
 def analyze():
@@ -54,8 +112,8 @@ def analyze():
 
     # Speech-to-Text
     client = speech.SpeechClient(credentials=credentials)
-    with open(temp_path, "rb") as audio_file:
-        content = audio_file.read()
+    with open(temp_path, "rb") as audio_file_content:
+        content = audio_file_content.read()
 
     audio = speech.RecognitionAudio(content=content)
 
@@ -91,8 +149,11 @@ def analyze():
     document = language_v1.Document(content=transcript, type_=language_v1.Document.Type.PLAIN_TEXT)
     sentiment = language_client.analyze_sentiment(document=document).document_sentiment
 
-    # Generate response with Gemini
-    gemini_response = generate_gemini_response(transcript)
+    # RAG UPDATE: Retrieve resources based on sentiment
+    relevant_resources = retrieve_relevant_resources(sentiment.score)
+
+    # RAG UPDATE: Pass the retrieved resources to Gemini
+    gemini_response = generate_gemini_response(transcript, resources=relevant_resources)
 
     return jsonify({
         "transcript": transcript,
