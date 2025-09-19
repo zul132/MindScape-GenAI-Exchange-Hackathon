@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import os
-import json # RAG UPDATE: Import the json library
+import json
 from google.cloud import speech
 from google.cloud import language_v1
 from google.oauth2 import service_account
@@ -12,65 +12,91 @@ load_dotenv()
 
 app = Flask(__name__)
 
-# --- Service account credentials for Speech-to-Text and Language API ---
-# This is still needed for the other Google Cloud services.
+# --- Service account credentials ---
 CREDENTIALS_PATH = "D:\\Hackathons\\Google_GenAI_Exchange_Hackathon\\MindScape-Project\\credentials\\genai-exchange-hack-4c8e1b0ee7a3.json"
 credentials = service_account.Credentials.from_service_account_file(CREDENTIALS_PATH)
 
 # --- Initialize Gemini with API Key ---
-# The API key is loaded from the .env file.
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
-    raise ValueError("GEMINI_API_KEY not found in .env file. Please create a .env file in the 'backend' directory and add your key.")
+    raise ValueError("GEMINI_API_KEY not found in .env file.")
 genai.configure(api_key=api_key)
 
 
-# RAG UPDATE: Load the mental health resources from the JSON file
 def load_mental_health_resources():
     """Loads mental health resources from the JSON knowledge base."""
     try:
         with open(os.path.join("data", "resources.json"), 'r', encoding='utf-8') as f:
             return json.load(f)
     except FileNotFoundError:
-        print("WARNING: resources.json not found. The RAG pipeline will not have access to resources.")
+        print("WARNING: resources.json not found.")
         return {}
 
-# RAG UPDATE: Store resources in a global variable for efficiency
 mental_health_resources = load_mental_health_resources()
 
 
-# RAG UPDATE: Simple retrieval logic based on sentiment score
-def retrieve_relevant_resources(sentiment_score):
+# IMPROVEMENT: New function to classify distress level using Gemini
+def classify_distress_level_with_gemini(text):
+    """
+    Uses Gemini to classify the user's text into a specific distress level.
+    """
+    gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
+    
+    prompt = f"""You are an expert psychological text analyst. Your task is to classify the user's mental state based on their journal entry.
+    
+    Analyze the following text and classify its distress level into one of these four categories ONLY: [crisis, moderate, mild, none].
+
+    - 'crisis': User expresses suicidal thoughts, extreme hopelessness, self-harm, or is in immediate danger. Examples: "I want to end it all", "I can't go on anymore", "Life isn't worth living".
+    - 'moderate': User expresses strong feelings of depression, anxiety, loneliness, or significant emotional pain. Examples: "I feel so alone and sad all the time", "My anxiety is overwhelming me".
+    - 'mild': User expresses general stress, frustration, sadness, or worry. Examples: "I'm feeling stressed about my exams", "I had a bad day".
+    - 'none': User expresses neutral or positive feelings.
+
+    User's text: "{text}"
+
+    Your response must ONLY be one of the four category names (crisis, moderate, mild, none) and nothing else.
+    """
+    
+    try:
+        response = gemini_model.generate_content(prompt)
+        # Clean up the response to ensure it's just one of the keywords
+        classification = response.text.strip().lower()
+        if classification in ["crisis", "moderate", "mild", "none"]:
+            return classification
+        else:
+            # Fallback in case of an unexpected response from Gemini
+            return "mild" 
+    except Exception as e:
+        print(f"Error in Gemini classification: {e}")
+        return "mild" # Default to 'mild' on error
+
+
+# IMPROVEMENT: Retrieval logic is now based on the distress level classification
+def retrieve_resources_by_distress_level(distress_level):
     """
     Retrieves relevant mental health resources from the knowledge base
-    based on the user's sentiment score.
+    based on the classified distress level.
     """
     if not mental_health_resources:
         return None
 
-    # If sentiment is very negative, suggest crisis hotlines
-    if sentiment_score < -0.6:
+    if distress_level == "crisis":
         return mental_health_resources.get("crisis_hotlines")
-    # If sentiment is moderately negative, suggest online counseling
-    elif -0.6 <= sentiment_score < -0.25:
+    elif distress_level == "moderate":
         return mental_health_resources.get("online_counseling")
-    # For milder negative feelings, suggest youth communities
-    elif -0.25 <= sentiment_score < 0:
+    elif distress_level == "mild":
         return mental_health_resources.get("youth_communities")
-    else:
-        return None # No resources needed for positive sentiment
+    else: # "none"
+        return None
 
 
-def generate_gemini_response(text, resources=None): # RAG UPDATE: Add 'resources' parameter
+def generate_gemini_response(text, resources=None):
     """
-    Generates a response using the Gemini API with the google-generativeai SDK.
+    Generates a response using the Gemini API.
     Optionally includes retrieved resources for a more helpful response.
     """
     gemini_model = genai.GenerativeModel("gemini-1.5-flash-latest")
     
-    # RAG UPDATE: Dynamically change the prompt based on whether resources were retrieved
     if resources:
-        # Convert resources list to a formatted string for the prompt
         resources_text = "\n".join([f"- {res['name']}: {res['description']} (Contact/Website: {res.get('contact', res.get('website'))})" for res in resources])
         
         prompt = f"""You are a compassionate and supportive mental wellness companion for the youth of India. A user has shared the following with you:
@@ -101,6 +127,7 @@ def analyze():
     if "audio_data" not in request.files:
         return jsonify({"error": "No audio file provided"}), 400
 
+    # (The Speech-to-Text part remains exactly the same...)
     audio_file = request.files["audio_data"]
     filename = audio_file.filename
     
@@ -110,7 +137,6 @@ def analyze():
     temp_path = os.path.join("temp", filename)
     audio_file.save(temp_path)
 
-    # Speech-to-Text
     client = speech.SpeechClient(credentials=credentials)
     with open(temp_path, "rb") as audio_file_content:
         content = audio_file_content.read()
@@ -130,7 +156,6 @@ def analyze():
         sample_rate_hertz=48000,
         language_code="en-US",
         audio_channel_count=2,
-        enable_separate_recognition_per_channel=False,
     )
 
     try:
@@ -144,21 +169,25 @@ def analyze():
     if not transcript:
         return jsonify({"error": "Could not transcribe audio"}), 500
 
-    # Natural Language API for sentiment analysis
+    # (The original sentiment analysis can still be useful for other purposes, so we keep it)
     language_client = language_v1.LanguageServiceClient(credentials=credentials)
     document = language_v1.Document(content=transcript, type_=language_v1.Document.Type.PLAIN_TEXT)
     sentiment = language_client.analyze_sentiment(document=document).document_sentiment
 
-    # RAG UPDATE: Retrieve resources based on sentiment
-    relevant_resources = retrieve_relevant_resources(sentiment.score)
+    # IMPROVEMENT: Classify distress level using our new function
+    distress_level = classify_distress_level_with_gemini(transcript)
 
-    # RAG UPDATE: Pass the retrieved resources to Gemini
+    # IMPROVEMENT: Retrieve resources based on the new, more accurate classification
+    relevant_resources = retrieve_resources_by_distress_level(distress_level)
+
+    # Pass the retrieved resources to Gemini for the final response
     gemini_response = generate_gemini_response(transcript, resources=relevant_resources)
 
     return jsonify({
         "transcript": transcript,
-        "sentiment_score": sentiment.score,
+        "sentiment_score": sentiment.score, # Still useful to return
         "sentiment_magnitude": sentiment.magnitude,
+        "distress_level": distress_level, # IMPROVEMENT: Return the new classification for debugging/UI
         "gemini_response": gemini_response
     })
 
