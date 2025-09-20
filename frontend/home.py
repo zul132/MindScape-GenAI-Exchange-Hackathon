@@ -9,7 +9,7 @@ st.set_page_config(page_title="MindScape", page_icon="🧠", layout="wide")
 
 setup_sidebar()
 
-st.title("🧠 MindScape — Diagnose. Engage. Heal.")
+st.title("🧠 MindScape — Engage. Support. Heal.")
 st.caption("⚠️ Disclaimer: Mindscape is a supportive tool for youth mental well-being and is not a medical service.")
 
 st.subheader("Mood Check Engine")

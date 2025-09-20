@@ -3,3 +3,5 @@ requests==2.32.3
 python-dotenv==1.0.1
 streamlit-webrtc
 streamlit-audiorec
+pandas==2.2.2
+plotly==5.22.0
